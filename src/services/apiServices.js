@@ -53,4 +53,81 @@ export async function updateFoodById(id, foodData) {
   return await api.put(`/foods/update/${id}`, foodData);
 }
 
+export async function fetchUsersWithRoles() {
+   const token = sessionStorage.getItem("token");
+  try {
+    const response = await axios.get(`${API_BASE}/admin/getAllUsers`,{
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("API error in fetchUsersWithRoles:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
+
+export async function fetchAllRoles() {
+  const token = sessionStorage.getItem("token");
+  try {
+    const response = await axios.get(`${API_BASE}/admin/all-roles`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching roles:", error);
+    throw error;
+  }
+}
+
+export async function fetchAllPermissions() {
+  const token = sessionStorage.getItem('token');
+  try {
+    const response = await axios.get(`${API_BASE}/admin/permissions`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data; // assuming your backend returns an array of permissions
+  } catch (error) {
+    console.error('Error fetching permissions:', error);
+    throw error;
+  }
+}
+
+export async function createRoleAPI(payload, token) {
+  try {
+    const response = await axios.post(`${API_BASE}/admin/createRole`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data; // assuming your backend returns an array of permissions
+  } catch (error) {
+    console.error('Error fetching permissions:', error);
+    throw error;
+  }
+}
+
+export async function updateUserRole(userId, roleName) {
+  const token = sessionStorage.getItem('token');
+  try {
+    const response = await axios.put(`${API_BASE}/admin/assign-role/${userId}`,
+      { roleName: roleName },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data; // return whatever backend sends back (optional)
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    throw error; // rethrow to be handled by caller
+  }
+}
+
 export default api;

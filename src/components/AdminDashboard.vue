@@ -1,5 +1,5 @@
 <script>
-import api from '@/services/apiServices'; // make sure this path is correct
+import api from '@/services/apiServices'; 
 import { addFood, deleteFoodById, updateFoodById } from '@/services/apiServices';
 
 export default {
@@ -10,18 +10,27 @@ export default {
       newFood: {
         name: '',
         description: '',
-        ingredients: [{ name: '', quantity: '' }]
+        ingredients: []        
       },
       foodList: [],
-       currentPage: 0,
+      currentPage: 0,
       itemsPerPage: 5,
       editingFood: null,
       searchTerm: "",
-       sortKey: 'name',     // default sort by name
+      sortKey: 'name',     // default sort by name
       sortOrder: 'asc',
+      availableIngredients: [],
+      ingredientInput: {
+      name: '',
+      newName: '',
+      quantity: ''
+       },
     };
   },
 computed: {
+  filteredIngredients() {
+    return this.newFood.ingredients.filter(ingredient => ingredient.name && ingredient.quantity);
+  },
   paginatedFoods() {  
 
      const filtered = this.foodList.filter(food =>
@@ -45,10 +54,7 @@ computed: {
     return sorted.slice(start, end);
   },
 
-
-
-  
-  totalPages() {
+totalPages() {
     const filtered = this.foodList.filter(food =>
       food.name.toLowerCase().includes(this.searchTerm.toLowerCase())
     );
@@ -62,6 +68,9 @@ methods: {
       this.currentPage = page;
     }
   },
+  goToAssignRole() {
+  this.$router.push('/assignRoleAdminDashboard')  // Replace with your route path
+},
     logout() {
       sessionStorage.clear();
       this.$router.push('/'); // Redirect to login page
@@ -70,7 +79,27 @@ methods: {
       this.showAddFoodForm = !this.showAddFoodForm;
     },
     addIngredient() {
-      this.newFood.ingredients.push({ name: '', quantity: '' });
+      const isNew = this.ingredientInput.name === '__new__';
+      const name = isNew ? this.ingredientInput.newName.trim() : this.ingredientInput.name;
+      const quantity = this.ingredientInput.quantity.trim();
+      if (!name || !quantity) {
+      alert("Please enter both ingredient name and quantity.");
+      return;
+    }
+    this.newFood.ingredients.push({ name, quantity });
+    if (isNew) {
+      // Optional: check if already exists to avoid duplicates
+      const exists = this.availableIngredients.some(ing => ing.name.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        const newId = this.availableIngredients.length > 0 ? Math.max(...this.availableIngredients.map(ing => ing.id)) + 1 : 1;
+        this.availableIngredients.push({ id: newId, name });
+      }
+    }
+    this.ingredientInput = {
+      name: '',
+      newName: '',
+      quantity: ''
+    };
     },
     removeIngredient(index) {
       this.newFood.ingredients.splice(index, 1);
@@ -118,8 +147,8 @@ methods: {
       }
     },
       startUpdateFood(food) {
-      this.editingFood = { ...food }; // keep a shallow copy for reference
-      this.newFood = JSON.parse(JSON.stringify(food)); // deep copy for editing
+      this.editingFood = { ...food }; 
+      this.newFood = JSON.parse(JSON.stringify(food)); 
       this.showAddFoodForm = true;
     },        
     async deleteFood(id) {
@@ -128,9 +157,9 @@ methods: {
           await deleteFoodById(id);
           this.foodList = this.foodList.filter(food => food.id !== id);
           alert('Food deleted successfully.');
+           this.extractIngredientsFromFood();
         } catch (error) {
           console.error('Delete failed:', error);
-          alert('Failed to delete food.');
         }
       }
     },
@@ -138,11 +167,30 @@ methods: {
       try {
         const response = await api.get('/foods');
         this.foodList = response.data;
+        this.extractIngredientsFromFood(this.foodList);
       } catch (error) {
         console.error('Fetch failed:', error);
         alert('Failed to load foods.');
     }
   },
+  extractIngredientsFromFood(foodList) {
+     if (!Array.isArray(foodList)) {
+     console.warn('extractIngredientsFromFood: foodList is not an array');
+     this.availableIngredients = [];
+     return;
+     }
+      const ingredientsSet = new Set();
+      foodList.forEach(food => {
+        food.ingredients?.forEach(ingredient => {
+          ingredientsSet.add(ingredient.name);
+        });
+      });
+
+      this.availableIngredients = Array.from(ingredientsSet).map((name, index) => ({
+        id: index + 1,
+        name: name
+      }));
+    },
   changeSort(key) {
       if (this.sortKey === key) {
         this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
@@ -164,11 +212,11 @@ methods: {
 </script>
 <template>
   <div class="d-flex" style="min-height: 100vh; overflow: hidden;">
+    
     <!-- Sidebar -->
     <aside
-      class="bg-light p-3 shadow"
-      style="width: 250px; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; z-index: 1000;"
-    >
+      class="p-3 shadow"
+      style="width: 250px; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; z-index: 1000; background-color: #f8d7da;">
       <h5 class="mb-4">👋 Hello, {{ username }}</h5>
 
       <button @click="toggleAddFoodForm" class="btn btn-primary btn-sm w-100 mb-3">
@@ -183,41 +231,85 @@ methods: {
         </select>
       </div>
 
-      <button @click="logout" class="btn btn-danger btn-sm w-100">Logout</button>
+      <button @click="goToAssignRole" class="btn btn-success btn-sm w-100">Assign Role</button>
     </aside>
+<!-- Main Content Area -->
+<div style="margin-left: 250px; flex-grow: 1; height: 100vh; overflow-y: auto;">
+  <!-- Sticky Header -->
+  <div
+    style="position: sticky; top: 0; background: #f8f9fa; z-index: 999; padding: 15px 20px; border-bottom: 1px solid #ccc;"
+    class="d-flex align-items-center justify-content-between"
+  >
+    <h3 class="mb-0">🍽️ Food List</h3>
 
-    <!-- Main Content Area -->
-    <div style="margin-left: 250px; flex-grow: 1; height: 100vh; overflow-y: auto;">
-      <!-- Sticky Header -->
-      <div
-        style="position: sticky; top: 0; background: white; z-index: 999; padding: 15px 20px; border-bottom: 1px solid #ccc;"
-      >
-        <h3 class="mb-3">🍽️ Food List</h3>
-        <input
-          v-model="searchTerm"
-          type="text"
-          class="form-control"
-          placeholder="Search food by name..."
-        />
-      </div>
+    <!-- Search input with flex-grow to take available space -->
+    <input
+      v-model="searchTerm"
+      type="text"
+      class="form-control mx-3"
+      placeholder="Search food by name..."
+      style="max-width: 400px; flex-grow: 1;"
+    />
+
+    <!-- Logout button on the right -->
+    <button class="btn btn-outline-danger btn-sm" @click="logout">
+      Logout
+    </button>
+  </div>
 
       <!-- Content Area -->
       <div style="padding: 20px;">
+
         <!-- Add/Edit Form -->
         <div v-if="showAddFoodForm" class="card p-3 mb-3">
           <h5>{{ editingFood ? 'Update Food' : 'Add New Food' }}</h5>
           <input v-model="newFood.name" placeholder="Name" class="form-control mb-2" />
           <textarea v-model="newFood.description" placeholder="Description" class="form-control mb-2" />
 
-          <div v-for="(ingredient, index) in newFood.ingredients" :key="index" class="d-flex mb-2">
-            <input v-model="ingredient.name" placeholder="Ingredient" class="form-control me-1" />
-            <input v-model="ingredient.quantity" placeholder="Quantity" class="form-control me-1" />
-            <button class="btn btn-outline-danger btn-sm" @click="removeIngredient(index)">X</button>
-          </div>
 
-          <button @click="addIngredient" class="btn btn-outline-primary btn-sm mb-3">
-            + Add Ingredient
-          </button>
+
+          <!-- Add Ingredient Section -->
+    <div class="d-flex mb-2">
+      <select v-model="ingredientInput.name" class="form-select me-2">
+        <option disabled value="">-- Select Ingredient --</option>
+        <option v-for="ing in availableIngredients" :key="ing.id" :value="ing.name">
+          {{ ing.name }}
+        </option>
+        <option value="__new__">➕ Add New Ingredient</option>
+      </select>
+
+      <!-- Input for new ingredient name if user chooses to add new -->
+      <input
+        v-if="ingredientInput.name === '__new__'"
+        v-model="ingredientInput.newName"
+        placeholder="New Ingredient Name"
+        class="form-control me-2"
+      />
+
+      <!-- Quantity Input -->
+      <input
+        v-if="ingredientInput.name"
+        v-model="ingredientInput.quantity"
+        placeholder="Quantity"
+        class="form-control me-2"
+        type="text"
+      />
+
+      <button @click="addIngredient" class="btn btn-success mb-3" >Add</button>
+    </div>
+ <!-- List of Added Ingredients with Remove Button -->
+    <div v-if="filteredIngredients.length">
+      <h5>Ingredients Added:</h5>
+      <ul class="list-group mb-3">
+        <li 
+           v-for="(ingredient, index) in newFood.ingredients" 
+           :key="index" 
+           class="list-group-item d-flex justify-content-between align-items-center">
+          {{ ingredient.name }} - {{ ingredient.quantity }}
+          <button class="btn btn-danger btn-sm" @click="removeIngredient(index)">Remove</button>
+        </li>
+      </ul>
+      </div>    
           <br />
           <button @click="submitAddOrUpdateFood" class="btn btn-success btn-sm me-2">
             {{ editingFood ? 'Update' : 'Add' }}
@@ -230,10 +322,10 @@ methods: {
           <table class="table table-bordered">
             <thead>
               <tr>
-                <th style="width: 25%;">Name</th>
-                <th style="width: 35%;">Description</th>
-                <th>Ingredients</th>
-                <th>Actions</th>
+                <th style="width: 15%;">Name</th>
+                <th style="width: 30%;">Description</th>
+                <th style="width: 35%;">Ingredients</th>
+                <th style="width: 40%;">Actions</th>
               </tr>
             </thead>
             <tbody>

@@ -8,7 +8,7 @@ export default {
     return {
       username: '',
       password: ''
-    };
+    };  
   },
   methods: {
     async submitRegister() {
@@ -16,7 +16,6 @@ export default {
         const response = await register(this.username, this.password);
         console.log(response);
         alert('Registration successful!');
-        // Optionally clear the form
         this.username = '';
         this.password = '';
       } catch (error) {
@@ -30,17 +29,36 @@ export default {
         const response = await login(this.username, this.password);
         const decoded = jwtDecode(response.token);
         const token = response.token;
-        console.log("role::",decoded.role);
+
+        console.log("roles::",decoded.roles);
         console.log("username :::", decoded.username);
+
+        sessionStorage.setItem('username', decoded.username);
         sessionStorage.setItem('token', token);
-        sessionStorage.setItem('role', decoded.role || response.role); // assuming backend sends role
+
+        // Save roles array (optional: stringify if needed later)
+        sessionStorage.setItem('roles', JSON.stringify(decoded.roles));
         console.log('Login success:', response);
-        // Redirect based on role
-        if (decoded.role === 'ROLE_ADMIN') {
-          this.$router.push('/adminDashboard');
-        } else {
-          this.$router.push('/userDashboard');
-        }
+
+       // Define role-to-route mapping
+       const roleRouteMap = {
+      ADMIN: '/adminDashboard',
+      SENIOR_CHEF: '/seniorChefDashboard',
+      JUNIOR_CHEF: '/juniorChefDashboard',
+      USER: '/userDashboard'
+       };
+
+        // Find first matching role in order of priority
+        const priorityOrder = ['ADMIN', 'SENIOR_CHEF', 'JUNIOR_CHEF', 'USER'];
+        const matchedRole = priorityOrder.find(role => decoded.roles.includes(role));
+
+      if (matchedRole && roleRouteMap[matchedRole]) {
+      this.$router.push(roleRouteMap[matchedRole]);
+      } else {
+      // Fallback in case no matching route found
+      alert("No matching role found. Redirecting to default page.");
+      this.$router.push('/');
+     }
 
       } catch (error) {
         alert(`Login Error: ${error}`);
