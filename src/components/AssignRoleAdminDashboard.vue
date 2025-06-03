@@ -1,6 +1,6 @@
 <script>
 import { fetchUsersWithRoles, createRoleAPI } from '@/services/apiServices';
-import { fetchAllRoles, fetchAllPermissions, updateUserRole } from '@/services/apiServices';
+import { fetchAllRoles, fetchAllPermissions, updateUserRole, deleteUser } from '@/services/apiServices';
 
 export default {
   data() {
@@ -13,7 +13,24 @@ export default {
       selectedPermissions: []
     };
   },
+  computed: {
+    filteredRoles() {
+      // Exclude ADMIN from roles list
+      return this.allRoles.filter(role => role !== 'ADMIN');
+    },
+  },
   methods: {
+    async deleteUser(userId) {
+      if (confirm("Are you sure you want to delete this user?")) {
+        try {
+          await deleteUser(userId);
+           this.users = this.users.filter(user => user.id !== userId);
+        } catch (error) {
+          console.error("Failed to delete user:", error);
+          alert("Failed to delete user");
+        }
+      }
+    },
       
     toggleCreateRoleForm() {
       this.showCreateRoleForm = !this.showCreateRoleForm;
@@ -175,6 +192,7 @@ export default {
             <th>Username</th>
             <th>Current Role</th>
             <th>Change Role</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -189,9 +207,17 @@ export default {
               :disabled="user.currentRole === 'ADMIN'"
               >
                 <option disabled value="">-- Select New Role --</option>
-                <option v-for="role in allRoles" :key="role" :value="role">{{ role }}</option>
+                <option v-for="role in filteredRoles" :key="role" :value="role" >{{ role }}</option>
               </select>
             </td>
+             <td>
+      <button 
+        class="btn btn-danger btn-sm" 
+        @click="deleteUser(user.id)" 
+        :disabled="user.currentRole === 'ADMIN'">
+        Delete
+      </button>
+    </td>
           </tr>
         </tbody>
       </table>

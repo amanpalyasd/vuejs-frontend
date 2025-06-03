@@ -1,10 +1,13 @@
 <script>
 import api from '@/services/apiServices'; 
 import { addFood, deleteFoodById, updateFoodById } from '@/services/apiServices';
+import { jwtDecode } from 'jwt-decode';
 
 export default {
   data() {
     return {
+        permissions: [],
+        roles: [],
       username: sessionStorage.getItem('username') || 'Admin',
       showAddFoodForm: false,
       newFood: {
@@ -21,56 +24,74 @@ export default {
       sortOrder: 'asc',
       availableIngredients: [],
       ingredientInput: {
-      name: '',
-      newName: '',
-      quantity: ''
-       },
+        name: '',
+        newName: '',
+        quantity: ''
+      },
     };
   },
-computed: {
-  filteredIngredients() {
-    return this.newFood.ingredients.filter(ingredient => ingredient.name && ingredient.quantity);
-  },
-  paginatedFoods() {  
+ created() {
+    const token = sessionStorage.getItem('token');
+    if (token) {
+      const decoded = jwtDecode(token);
 
-     const filtered = this.foodList.filter(food =>
-      food.name.toLowerCase().includes(this.searchTerm.toLowerCase())
-    );
+      // Log the full decoded token for debugging
+      console.log('Decoded JWT Token:', decoded);
 
-    const sorted = filtered.sort((a, b) => {
-        let compareA = a[this.sortKey];
-        let compareB = b[this.sortKey];
+      // Assuming the token has roles and permissions fields
+      this.roles = decoded.roles || [];
+      this.permissions = decoded.permissions || [];
 
-        if (typeof compareA === 'string') compareA = compareA.toLowerCase();
-        if (typeof compareB === 'string') compareB = compareB.toLowerCase();
-
-        if (compareA < compareB) return this.sortOrder === 'asc' ? -1 : 1;
-        if (compareA > compareB) return this.sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-    const start = this.currentPage * this.itemsPerPage;
-    const end = start + this.itemsPerPage;
-    return sorted.slice(start, end);
-  },
-
-totalPages() {
-    const filtered = this.foodList.filter(food =>
-      food.name.toLowerCase().includes(this.searchTerm.toLowerCase())
-    );
-    return Math.ceil(filtered.length / this.itemsPerPage);
-  }
-},
-methods: {
-  goToPage(page) {
-    console.log('Switching to page:', page);
-    if (page >= 0 && page < this.totalPages) {
-      this.currentPage = page;
+      // Log roles and permissions separately
+      console.log('User Roles:', this.roles);
+      console.log('User Permissions:', this.permissions);
+    } else {
+      console.log('No token found in sessionStorage');
     }
   },
-  goToAssignRole() {
-  this.$router.push('/assignRoleAdminDashboard')  // Replace with your route path
-},
+ computed: {
+    filteredIngredients() {
+      return this.newFood.ingredients.filter(ingredient => ingredient.name && ingredient.quantity);
+    },
+    paginatedFoods() {  
+      const filtered = this.foodList.filter(food =>
+        food.name.toLowerCase().includes(this.searchTerm.toLowerCase())
+      );
+
+      const sorted = filtered.sort((a, b) => {
+          let compareA = a[this.sortKey];
+          let compareB = b[this.sortKey];
+
+          if (typeof compareA === 'string') compareA = compareA.toLowerCase();
+          if (typeof compareB === 'string') compareB = compareB.toLowerCase();
+
+          if (compareA < compareB) return this.sortOrder === 'asc' ? -1 : 1;
+          if (compareA > compareB) return this.sortOrder === 'asc' ? 1 : -1;
+          return 0;
+        });
+
+      const start = this.currentPage * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return sorted.slice(start, end);
+    },
+
+    totalPages() {
+      const filtered = this.foodList.filter(food =>
+        food.name.toLowerCase().includes(this.searchTerm.toLowerCase())
+      );
+      return Math.ceil(filtered.length / this.itemsPerPage);
+    }
+  },
+  methods: {
+    canAccess(permission) {
+      return this.permissions.includes(permission);
+    },  
+    goToPage(page) {
+      console.log('Switching to page:', page);
+      if (page >= 0 && page < this.totalPages) {
+        this.currentPage = page;
+      }
+    },
     logout() {
       sessionStorage.clear();
       this.$router.push('/'); // Redirect to login page
@@ -83,23 +104,23 @@ methods: {
       const name = isNew ? this.ingredientInput.newName.trim() : this.ingredientInput.name;
       const quantity = this.ingredientInput.quantity.trim();
       if (!name || !quantity) {
-      alert("Please enter both ingredient name and quantity.");
-      return;
-    }
-    this.newFood.ingredients.push({ name, quantity });
-    if (isNew) {
-      // Optional: check if already exists to avoid duplicates
-      const exists = this.availableIngredients.some(ing => ing.name.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        const newId = this.availableIngredients.length > 0 ? Math.max(...this.availableIngredients.map(ing => ing.id)) + 1 : 1;
-        this.availableIngredients.push({ id: newId, name });
+        alert("Please enter both ingredient name and quantity.");
+        return;
       }
-    }
-    this.ingredientInput = {
-      name: '',
-      newName: '',
-      quantity: ''
-    };
+      this.newFood.ingredients.push({ name, quantity });
+      if (isNew) {
+        // Optional: check if already exists to avoid duplicates
+        const exists = this.availableIngredients.some(ing => ing.name.toLowerCase() === name.toLowerCase());
+        if (!exists) {
+          const newId = this.availableIngredients.length > 0 ? Math.max(...this.availableIngredients.map(ing => ing.id)) + 1 : 1;
+          this.availableIngredients.push({ id: newId, name });
+        }
+      }
+      this.ingredientInput = {
+        name: '',
+        newName: '',
+        quantity: ''
+      };
     },
     removeIngredient(index) {
       this.newFood.ingredients.splice(index, 1);
@@ -122,22 +143,21 @@ methods: {
           return;
         }
       }
-    try{
-      if (this.editingFood) {
-      // Update logic
-      const response = await updateFoodById(this.editingFood.id, this.newFood);
-      const index = this.foodList.findIndex(f => f.id === this.editingFood.id);
-      if (index !== -1) {
-        this.foodList.splice(index, 1, response.data);
-      }
-      alert('Food updated successfully!');
-    }
-      else {
-      // Add logic
-      const response = await addFood(this.newFood);
-      this.foodList.push(response.data);
-      alert('Food added successfully!');
-    }
+      try {
+        if (this.editingFood) {
+          // Update logic
+          const response = await updateFoodById(this.editingFood.id, this.newFood);
+          const index = this.foodList.findIndex(f => f.id === this.editingFood.id);
+          if (index !== -1) {
+            this.foodList.splice(index, 1, response.data);
+          }
+          alert('Food updated successfully!');
+        } else {
+          // Add logic
+          const response = await addFood(this.newFood);
+          this.foodList.push(response.data);
+          alert('Food added successfully!');
+        }
         this.resetForm();
         this.showAddFoodForm = false;
         this.editingFood = null;
@@ -146,7 +166,7 @@ methods: {
         alert('Failed to submit food.');
       }
     },
-      startUpdateFood(food) {
+    startUpdateFood(food) {
       this.editingFood = { ...food }; 
       this.newFood = JSON.parse(JSON.stringify(food)); 
       this.showAddFoodForm = true;
@@ -157,7 +177,7 @@ methods: {
           await deleteFoodById(id);
           this.foodList = this.foodList.filter(food => food.id !== id);
           alert('Food deleted successfully.');
-           this.extractIngredientsFromFood();
+          this.extractIngredientsFromFood();
         } catch (error) {
           console.error('Delete failed:', error);
         }
@@ -171,14 +191,14 @@ methods: {
       } catch (error) {
         console.error('Fetch failed:', error);
         alert('Failed to load foods.');
-    }
-  },
-  extractIngredientsFromFood(foodList) {
-     if (!Array.isArray(foodList)) {
-     console.warn('extractIngredientsFromFood: foodList is not an array');
-     this.availableIngredients = [];
-     return;
-     }
+      }
+    },
+    extractIngredientsFromFood(foodList) {
+      if (!Array.isArray(foodList)) {
+        console.warn('extractIngredientsFromFood: foodList is not an array');
+        this.availableIngredients = [];
+        return;
+      }
       const ingredientsSet = new Set();
       foodList.forEach(food => {
         food.ingredients?.forEach(ingredient => {
@@ -191,7 +211,7 @@ methods: {
         name: name
       }));
     },
-  changeSort(key) {
+    changeSort(key) {
       if (this.sortKey === key) {
         this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
       } else {
@@ -203,23 +223,24 @@ methods: {
   mounted() {
     this.fetchAllFoods();
   },
-  watch:{
+  watch: {
     searchTerm() {
-    this.currentPage = 0;
-  }
+      this.currentPage = 0;
+    }
   }
 };
 </script>
+
 <template>
   <div class="d-flex" style="min-height: 100vh; overflow: hidden;">
     
     <!-- Sidebar -->
     <aside
       class="p-3 shadow"
-      style="width: 250px; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; z-index: 1000; background-color: #f8d7da;">
+      style="width: 250px; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; z-index: 1000; background-color: orchid;">
       <h5 class="mb-4">👋 Hello, {{ username }}</h5>
 
-      <button @click="toggleAddFoodForm" class="btn btn-primary btn-sm w-100 mb-3">
+      <button v-if="canAccess('ADD_FOOD')" @click="toggleAddFoodForm" class="btn btn-primary btn-sm w-100 mb-3">
         {{ showAddFoodForm ? 'Cancel' : '➕ Add Food' }}
       </button>
 
@@ -230,8 +251,6 @@ methods: {
           <option value="description">Description</option>
         </select>
       </div>
-
-      <button @click="goToAssignRole" class="btn btn-success btn-sm w-100">Assign Role</button>
     </aside>
 <!-- Main Content Area -->
 <div style="margin-left: 250px; flex-grow: 1; height: 100vh; overflow-y: auto;">
@@ -314,7 +333,6 @@ methods: {
           <button @click="submitAddOrUpdateFood" class="btn btn-success btn-sm me-2">
             {{ editingFood ? 'Update' : 'Add' }}
           </button>
-          <br>
           <button @click="resetForm" class="btn btn-secondary btn-sm">Reset</button>
         </div>
 
@@ -341,8 +359,8 @@ methods: {
                   </ul>
                 </td>
                 <td>
-                  <button @click="startUpdateFood(food)" class="btn btn-warning btn-sm me-1">Edit</button>
-                  <button @click="deleteFood(food.id)" class="btn btn-danger btn-sm">Delete</button>
+                  <button v-if="canAccess('UPDATE_FOOD')" @click="startUpdateFood(food)" class="btn btn-warning btn-sm me-1">Edit</button>
+                  <button v-if="canAccess('DELETE_FOOD')" @click="deleteFood(food.id)" class="btn btn-danger btn-sm">Delete</button>
                 </td>
               </tr>
             </tbody>

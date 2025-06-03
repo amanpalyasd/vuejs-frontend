@@ -27,43 +27,46 @@ export default {
     async submitLogin() {
       try {
         const response = await login(this.username, this.password);
-        const decoded = jwtDecode(response.token);
         const token = response.token;
+        const decoded = jwtDecode(response.token);
 
-        console.log("roles::",decoded.roles);
-        console.log("username :::", decoded.username);
+            // Extract data from decoded token
+           const roles = decoded.roles || [];
+           const permissions = decoded.permissions || [];
+          // const username = decoded.username || '';
 
-        sessionStorage.setItem('username', decoded.username);
-        sessionStorage.setItem('token', token);
+           console.log("roles::",decoded.roles);
+           console.log("username :::", decoded.username);
+           console.log("Permissions :::", decoded.permissions);
 
-        // Save roles array (optional: stringify if needed later)
-        sessionStorage.setItem('roles', JSON.stringify(decoded.roles));
-        console.log('Login success:', response);
+           sessionStorage.setItem('token', token);
+           sessionStorage.setItem('roles', JSON.stringify(roles));
+           sessionStorage.setItem('permissions', JSON.stringify(permissions));
+           sessionStorage.setItem('username', decoded.username);
+
+           console.log('Login success:', response);
 
        // Define role-to-route mapping
        const roleRouteMap = {
       ADMIN: '/adminDashboard',
-      SENIOR_CHEF: '/seniorChefDashboard',
-      JUNIOR_CHEF: '/juniorChefDashboard',
-      USER: '/userDashboard'
+      USER: '/userDashboard',
+
        };
 
-        // Find first matching role in order of priority
-        const priorityOrder = ['ADMIN', 'SENIOR_CHEF', 'JUNIOR_CHEF', 'USER'];
-        const matchedRole = priorityOrder.find(role => decoded.roles.includes(role));
-
-      if (matchedRole && roleRouteMap[matchedRole]) {
-      this.$router.push(roleRouteMap[matchedRole]);
-      } else {
-      // Fallback in case no matching route found
-      alert("No matching role found. Redirecting to default page.");
-      this.$router.push('/');
-     }
-
-      } catch (error) {
-        alert(`Login Error: ${error}`);
-      }
+     
+     if (roles.includes('ADMIN')) {
+      this.$router.push(roleRouteMap.ADMIN);
+    } else if (roles.includes('USER')) {
+      this.$router.push(roleRouteMap.USER);
+    } else {
+      // For any role other than ADMIN or USER, redirect to customDashboard
+      this.$router.push('/customDashboard');
     }
+
+  } catch (error) {
+    alert(`Login Error: ${error.message || error}`);
+  }
+}
   }
 };
 

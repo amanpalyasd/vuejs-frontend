@@ -130,4 +130,22 @@ export async function updateUserRole(userId, roleName) {
   }
 }
 
+export async function deleteUser(userId) {
+  const token = sessionStorage.getItem('token');
+  try {
+    const response = await axios.delete(`${API_BASE}/admin/deleteUser/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data; // return whatever backend sends back (optional)
+  } catch (error) {
+    console.error('Error Deleting:', error);
+    throw error; // rethrow to be handled by caller
+  }
+}
+
+
 export default api;

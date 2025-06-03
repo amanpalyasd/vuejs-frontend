@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '../components/HomePage.vue';
 import UserDashboard from '../components/UserDashboard.vue';
 import AdminDashboard from '../components/AdminDashboard.vue';
+import CustomDashboard from '../components/CustomDashboard.vue';
 import AssignRoleAdminDashboard from '../components/AssignRoleAdminDashboard.vue';
 
 const routes = [
@@ -10,6 +11,7 @@ const routes = [
   { path: '/userDashboard', name: 'UserDashboard', component: UserDashboard },
   { path: '/adminDashboard', name: 'AdminDashboard', component: AdminDashboard },
   { path: '/assignRoleAdminDashboard', name: 'AssignRoleAdminDashboard', component: AssignRoleAdminDashboard },
+   { path: '/customDashboard', name: 'CustomDashboard', component: CustomDashboard },
 ];
 
 const router = createRouter({
